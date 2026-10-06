@@ -1,16 +1,28 @@
 name: Daily Streamlit Refresh
+
 on:
   schedule:
-    # 3:45 AM UTC = 9:15 AM IST (market open)
-    - cron: '30 3 * * 1-5'
+    - cron: '45 3 * * 1-5'
   workflow_dispatch:
 
 jobs:
   warm-up:
     runs-on: ubuntu-latest
     steps:
+      - name: Check if trading day
+        id: check
+        run: |
+          TODAY=$(date +%Y-%m-%d)
+          HOLIDAYS="2026-01-26 2026-03-03 2026-03-31 2026-04-03 2026-04-14 2026-04-17 2026-05-01 2026-08-15 2026-08-27 2026-10-02 2026-10-20 2026-11-09 2026-11-10 2026-11-25 2026-12-25"
+          if [[ " $HOLIDAYS " =~ " $TODAY " ]]; then
+            echo "is_trading_day=false" >> $GITHUB_OUTPUT
+          else
+            echo "is_trading_day=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Ping Streamlit App
+        if: steps.check.outputs.is_trading_day == 'true'
         run: |
           echo "Pinging at $(date)"
           curl -L --max-time 300 https://trading-dashboard-jashan.streamlit.app -o /dev/null -w "HTTP %{http_code} in %{time_total}s\n"
-          echo "App warmed up"
+          echo "App warmed up successfully"
