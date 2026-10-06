@@ -1,6 +1,6 @@
 # ============================================================
 # INDIAN STOCK SWING TRADING DASHBOARD
-# Streamlit Application - Production Version
+# Streamlit Application - Auto-Run Version
 # ============================================================
 
 import streamlit as st
@@ -13,7 +13,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # ============================================================
-# PAGE CONFIG (MUST BE FIRST)
+# PAGE CONFIG
 # ============================================================
 st.set_page_config(
     page_title="Swing Trading Dashboard",
@@ -45,14 +45,8 @@ st.markdown("""
         background: #ffffff;
         box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     }
-    .regime-card * {
-        color: #2c3e50 !important;
-    }
-    .regime-title {
-        font-size: 22px;
-        font-weight: bold;
-        margin-bottom: 12px;
-    }
+    .regime-card * { color: #2c3e50 !important; }
+    .regime-title { font-size: 22px; font-weight: bold; margin-bottom: 12px; }
     .regime-bullish { border-left-color: #00b894; }
     .regime-bullish .regime-title { color: #00b894 !important; }
     .regime-cautious { border-left-color: #f39c12; }
@@ -69,7 +63,6 @@ st.markdown("""
         font-size: 14px;
         color: #2c3e50 !important;
     }
-    .regime-detail strong { color: #2c3e50 !important; }
 
     .stock-card {
         background: #ffffff;
@@ -78,25 +71,11 @@ st.markdown("""
         margin: 15px 0;
         box-shadow: 0 2px 10px rgba(0,0,0,0.08);
         border-left: 4px solid #667eea;
-        color: #2c3e50 !important;
     }
-    .stock-card * {
-        color: #2c3e50 !important;
-    }
-    .stock-symbol {
-        font-size: 22px;
-        font-weight: bold;
-        color: #2c3e50 !important;
-    }
-    .stock-sector {
-        color: #7f8c8d !important;
-        font-size: 13px;
-    }
-    .stock-score {
-        font-size: 28px;
-        font-weight: bold;
-        float: right;
-    }
+    .stock-card * { color: #2c3e50 !important; }
+    .stock-symbol { font-size: 22px; font-weight: bold; }
+    .stock-sector { color: #7f8c8d !important; font-size: 13px; }
+    .stock-score { font-size: 28px; font-weight: bold; float: right; }
     .score-high { color: #00b894 !important; }
     .score-medium { color: #f39c12 !important; }
     .score-low { color: #d63031 !important; }
@@ -106,11 +85,7 @@ st.markdown("""
         padding: 14px;
         background: #f8f9fa;
         border-radius: 8px;
-        color: #2c3e50 !important;
         line-height: 1.8;
-    }
-    .trade-plan-box strong {
-        color: #2c3e50 !important;
     }
 
     .factor-badge {
@@ -125,26 +100,23 @@ st.markdown("""
     .badge-ok { background: #fff3cd; color: #856404 !important; }
     .badge-weak { background: #f8d7da; color: #721c24 !important; }
 
-    .info-box {
-        padding: 16px;
-        border-radius: 10px;
-        background: #e8f4f8;
-        margin: 12px 0;
-        color: #2c3e50 !important;
-        line-height: 1.7;
-    }
-    .info-box strong { color: #2c3e50 !important; }
-
     .warning-box {
         padding: 16px;
         border-radius: 10px;
         background: #fff3cd;
         border-left: 4px solid #f39c12;
         margin: 12px 0;
-        color: #856404 !important;
         line-height: 1.7;
     }
-    .warning-box strong { color: #856404 !important; }
+
+    .status-bar {
+        padding: 10px 16px;
+        background: #e8f4f8;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        font-size: 13px;
+        color: #2c3e50 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -176,27 +148,22 @@ NIFTY_NEXT50 = [
 ]
 
 SECTOR_MAP = {
-    'TCS.NS': 'IT', 'INFY.NS': 'IT', 'WIPRO.NS': 'IT',
-    'HCLTECH.NS': 'IT', 'TECHM.NS': 'IT',
-    'HDFCBANK.NS': 'Banking', 'ICICIBANK.NS': 'Banking',
-    'SBIN.NS': 'Banking', 'KOTAKBANK.NS': 'Banking',
-    'AXISBANK.NS': 'Banking', 'INDUSINDBK.NS': 'Banking',
+    'TCS.NS': 'IT', 'INFY.NS': 'IT', 'WIPRO.NS': 'IT', 'HCLTECH.NS': 'IT', 'TECHM.NS': 'IT',
+    'HDFCBANK.NS': 'Banking', 'ICICIBANK.NS': 'Banking', 'SBIN.NS': 'Banking',
+    'KOTAKBANK.NS': 'Banking', 'AXISBANK.NS': 'Banking', 'INDUSINDBK.NS': 'Banking',
     'RELIANCE.NS': 'Oil & Gas', 'ONGC.NS': 'Oil & Gas', 'BPCL.NS': 'Oil & Gas',
-    'TMPV.NS': 'Auto', 'TMCV.NS': 'Auto', 'MARUTI.NS': 'Auto',
-    'M&M.NS': 'Auto', 'EICHERMOT.NS': 'Auto',
-    'BAJAJ-AUTO.NS': 'Auto', 'HEROMOTOCO.NS': 'Auto',
-    'SUNPHARMA.NS': 'Pharma', 'DRREDDY.NS': 'Pharma',
-    'CIPLA.NS': 'Pharma', 'DIVISLAB.NS': 'Pharma',
-    'HINDUNILVR.NS': 'FMCG', 'ITC.NS': 'FMCG',
-    'NESTLEIND.NS': 'FMCG', 'BRITANNIA.NS': 'FMCG', 'TATACONSUM.NS': 'FMCG',
-    'TATASTEEL.NS': 'Metals', 'JSWSTEEL.NS': 'Metals',
-    'HINDALCO.NS': 'Metals', 'COALINDIA.NS': 'Mining',
-    'NTPC.NS': 'Power', 'POWERGRID.NS': 'Power',
+    'TMPV.NS': 'Auto', 'TMCV.NS': 'Auto', 'MARUTI.NS': 'Auto', 'M&M.NS': 'Auto',
+    'EICHERMOT.NS': 'Auto', 'BAJAJ-AUTO.NS': 'Auto', 'HEROMOTOCO.NS': 'Auto',
+    'SUNPHARMA.NS': 'Pharma', 'DRREDDY.NS': 'Pharma', 'CIPLA.NS': 'Pharma', 'DIVISLAB.NS': 'Pharma',
+    'HINDUNILVR.NS': 'FMCG', 'ITC.NS': 'FMCG', 'NESTLEIND.NS': 'FMCG',
+    'BRITANNIA.NS': 'FMCG', 'TATACONSUM.NS': 'FMCG',
+    'TATASTEEL.NS': 'Metals', 'JSWSTEEL.NS': 'Metals', 'HINDALCO.NS': 'Metals',
+    'COALINDIA.NS': 'Mining', 'NTPC.NS': 'Power', 'POWERGRID.NS': 'Power',
     'BHARTIARTL.NS': 'Telecom',
     'BAJFINANCE.NS': 'Financial Services', 'BAJAJFINSV.NS': 'Financial Services',
     'HDFCLIFE.NS': 'Insurance', 'SBILIFE.NS': 'Insurance',
-    'LT.NS': 'Infrastructure',
-    'ULTRACEMCO.NS': 'Cement', 'GRASIM.NS': 'Cement', 'SHREECEM.NS': 'Cement',
+    'LT.NS': 'Infrastructure', 'ULTRACEMCO.NS': 'Cement',
+    'GRASIM.NS': 'Cement', 'SHREECEM.NS': 'Cement',
     'TITAN.NS': 'Consumer', 'ASIANPAINT.NS': 'Paints',
     'ADANIPORTS.NS': 'Ports', 'ADANIENT.NS': 'Diversified',
     'APOLLOHOSP.NS': 'Healthcare',
@@ -222,9 +189,7 @@ SECTOR_MAP = {
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_nifty_data():
-    """Fetch Nifty index data with 1-hour cache"""
     tickers_to_try = ['^NSEI', 'NIFTYBEES.NS']
-
     for ticker in tickers_to_try:
         try:
             data = yf.download(ticker, period='1y', progress=False, timeout=15)
@@ -239,11 +204,9 @@ def fetch_nifty_data():
 
 
 def compute_nifty_rsi(nifty):
-    """Compute Nifty RSI series for charting"""
     close_series = nifty['Close']
     if isinstance(close_series, pd.DataFrame):
         close_series = close_series.iloc[:, 0]
-
     df = pd.DataFrame({'Close': close_series})
     delta = df['Close'].diff()
     gain = delta.where(delta > 0, 0).rolling(14).mean()
@@ -254,23 +217,15 @@ def compute_nifty_rsi(nifty):
 
 
 def detect_market_regime():
-    """Detect market regime from Nifty"""
     nifty = fetch_nifty_data()
-
     if nifty is None:
-        return {
-            'regime': 'DATA UNAVAILABLE',
-            'trade_ok': True,
-            'size_multiplier': 0.5,
-            'nifty_rsi': None,
-            'nifty_price': None,
-            'advice': 'Could not fetch Nifty data. Trading at half size as precaution.'
-        }
+        return {'regime': 'DATA UNAVAILABLE', 'trade_ok': True, 'size_multiplier': 0.5,
+                'nifty_rsi': None, 'nifty_price': None,
+                'advice': 'Could not fetch Nifty data. Trading at half size as precaution.'}
 
     df = compute_nifty_rsi(nifty)
     df['MA_50'] = df['Close'].rolling(50).mean()
     df['MA_200'] = df['Close'].rolling(200).mean()
-
     latest = df.iloc[-1]
 
     def to_float(v):
@@ -304,59 +259,44 @@ def detect_market_regime():
         regime, ok, size = "SIDEWAYS", True, 0.5
         advice = "Choppy market. Only highest-quality setups. Half size."
 
-    return {
-        'regime': regime,
-        'trade_ok': ok,
-        'size_multiplier': size,
-        'nifty_price': price,
-        'nifty_rsi': rsi,
-        'nifty_ma_50': ma_50,
-        'nifty_ma_200': ma_200,
-        'advice': advice
-    }
+    return {'regime': regime, 'trade_ok': ok, 'size_multiplier': size,
+            'nifty_price': price, 'nifty_rsi': rsi,
+            'nifty_ma_50': ma_50, 'nifty_ma_200': ma_200, 'advice': advice}
 
 
-def fetch_stock_data(symbols, years=5):
-    """Download stock data one by one"""
+def fetch_stock_data(symbols, years=5, show_progress=True):
     end_date = datetime.now()
     start_date = end_date - timedelta(days=years * 365)
-
     stock_data = {}
     failed = []
 
-    progress = st.progress(0, text="Downloading market data...")
+    progress = st.progress(0, text="Downloading market data...") if show_progress else None
 
     for i, symbol in enumerate(symbols):
         try:
-            sdf = yf.download(
-                symbol,
+            sdf = yf.download(symbol,
                 start=start_date.strftime('%Y-%m-%d'),
                 end=end_date.strftime('%Y-%m-%d'),
-                progress=False, auto_adjust=True, timeout=15
-            )
-
+                progress=False, auto_adjust=True, timeout=15)
             if isinstance(sdf.columns, pd.MultiIndex):
                 sdf.columns = sdf.columns.get_level_values(0)
-
             if not sdf.empty and len(sdf) > 200:
                 stock_data[symbol] = sdf.dropna(how='all')
             else:
                 failed.append(symbol)
         except:
             failed.append(symbol)
-
-        progress.progress((i + 1) / len(symbols),
-                          text=f"Downloaded {i+1}/{len(symbols)}")
+        if progress:
+            progress.progress((i + 1) / len(symbols), text=f"Downloaded {i+1}/{len(symbols)}")
         time.sleep(0.05)
 
-    progress.empty()
+    if progress:
+        progress.empty()
     return stock_data, failed
 
 
 def calculate_indicators(df):
-    """Add all technical indicators"""
     df = df.copy()
-
     df['MA_20'] = df['Close'].rolling(20).mean()
     df['MA_50'] = df['Close'].rolling(50).mean()
     df['MA_200'] = df['Close'].rolling(200).mean()
@@ -400,42 +340,33 @@ def calculate_indicators(df):
     df['Volume_Ratio'] = df['Volume'] / df['Volume_MA_20']
     df['Returns_1D'] = df['Close'].pct_change()
     df['Returns_20D'] = df['Close'].pct_change(20)
-
     return df.dropna()
 
 
 def find_realistic_target(df, idx, ref_close, atr):
-    """Find resistance-based target"""
     lookback = min(50, idx)
     recent = df.iloc[idx - lookback: idx + 1]
-
     swing_20 = recent['High'].iloc[-20:].max() if len(recent) >= 20 else ref_close
     swing_50 = recent['High'].max()
     bb_upper = recent['Close'].mean() + (2 * recent['Close'].std())
     atr_target = ref_close + (2.5 * atr)
     min_target = ref_close + (1.5 * atr)
-
-    levels = [l for l in [swing_20, swing_50, bb_upper, atr_target]
-              if l > ref_close * 1.005]
-
+    levels = [l for l in [swing_20, swing_50, bb_upper, atr_target] if l > ref_close * 1.005]
     if not levels:
         return min_target
     return max(min(levels), min_target)
 
 
 def score_stock(df, symbol, top_sectors, config):
-    """Score a single stock across 5 factors"""
     latest = df.iloc[-1]
     prev = df.iloc[-2] if len(df) > 1 else latest
     idx = len(df) - 1
-
     ref_close = latest['Close']
     atr = latest['ATR']
 
     if ref_close < config['min_price'] or ref_close > config['max_price']:
         return None
 
-    # FACTOR 1: TREND (30%)
     trend = 0
     if latest['Above_20MA']: trend += 0.2
     if latest['Above_50MA']: trend += 0.3
@@ -443,7 +374,6 @@ def score_stock(df, symbol, top_sectors, config):
     if latest['MA_20'] > latest['MA_50']: trend += 0.15
     if latest['MA_50'] > latest['MA_200']: trend += 0.15
 
-    # FACTOR 2: MOMENTUM (25%)
     rsi = latest['RSI']
     mom = 0
     if 50 <= rsi <= 70: mom += 0.4
@@ -453,7 +383,6 @@ def score_stock(df, symbol, top_sectors, config):
     if latest['MACD'] > latest['MACD_Signal']: mom += 0.3
     if latest['MACD_Histogram'] > 0: mom += 0.1
 
-    # FACTOR 3: VOLUME (15%)
     vol = 0
     vr = latest['Volume_Ratio']
     if vr > 2.0: vol += 0.7
@@ -462,7 +391,6 @@ def score_stock(df, symbol, top_sectors, config):
     elif vr > 1.0: vol += 0.2
     if latest['Volume'] > prev['Volume']: vol += 0.3
 
-    # FACTOR 4: REGIME (15%)
     reg = 0
     sector = SECTOR_MAP.get(symbol, 'Others')
     if top_sectors and sector == top_sectors[0]: reg += 0.6
@@ -471,13 +399,11 @@ def score_stock(df, symbol, top_sectors, config):
     if latest['ADX'] > 25: reg += 0.2
     elif latest['ADX'] > 20: reg += 0.1
 
-    # FACTOR 5: RISK QUALITY (15%)
     rq = 0
     atr_pct = latest['ATR_Pct']
     if 1.0 <= atr_pct <= 3.0: rq += 0.4
     elif 0.5 <= atr_pct < 1.0: rq += 0.3
 
-    # WEIGHTED TOTAL
     total = (trend * 0.30 + mom * 0.25 + vol * 0.15 + reg * 0.15 + rq * 0.15)
 
     entry_low = ref_close * 0.995
@@ -499,19 +425,14 @@ def score_stock(df, symbol, top_sectors, config):
         'Sector': sector,
         'Total_Score': round(total, 3),
         'Confidence': 'HIGH' if total >= 0.75 else 'MEDIUM' if total >= 0.65 else 'LOW',
-        'Trend': round(trend, 2),
-        'Momentum': round(mom, 2),
-        'Volume': round(vol, 2),
-        'Regime': round(reg, 2),
+        'Trend': round(trend, 2), 'Momentum': round(mom, 2),
+        'Volume': round(vol, 2), 'Regime': round(reg, 2),
         'Risk_Quality': round(rq, 2),
-        'RSI': round(rsi, 1),
-        'ADX': round(latest['ADX'], 1),
-        'ATR_Pct': round(atr_pct, 2),
-        'ATR': round(atr, 2),
+        'RSI': round(rsi, 1), 'ADX': round(latest['ADX'], 1),
+        'ATR_Pct': round(atr_pct, 2), 'ATR': round(atr, 2),
         'Volume_Ratio': round(vr, 2),
         'Reference_Close': round(ref_close, 2),
-        'Entry_Low': round(entry_low, 2),
-        'Entry_High': round(entry_high, 2),
+        'Entry_Low': round(entry_low, 2), 'Entry_High': round(entry_high, 2),
         'Entry': round(suggested, 2),
         'Stop_Loss': round(stop, 2),
         'Stop_Loss_Pct': round((ref_close - stop) / ref_close * 100, 2),
@@ -521,46 +442,43 @@ def score_stock(df, symbol, top_sectors, config):
 
 
 def calc_position(entry, stop, score, capital, risk_pct, size_mult=1.0):
-    """Position sizing with confidence adjustment"""
     risk_amount = capital * risk_pct * size_mult
     stop_dist = entry - stop
     if stop_dist <= 0 or size_mult == 0:
         return 0, 0, 0, 0
-
     shares = int(risk_amount / stop_dist)
-    if score >= 0.80:
-        shares = int(shares * 1.15)
-    elif score < 0.70:
-        shares = int(shares * 0.8)
-
+    if score >= 0.80: shares = int(shares * 1.15)
+    elif score < 0.70: shares = int(shares * 0.8)
     max_value = capital * 0.35
     if shares * entry > max_value:
         shares = int(max_value / entry)
-
     if shares < 1:
         return 0, 0, 0, 0
-
     return shares, shares * entry, (shares * entry / capital) * 100, shares * stop_dist
 
 
-def run_full_analysis(symbols, config, market_regime):
-    """Run complete analysis pipeline"""
-    stock_data, failed = fetch_stock_data(symbols, years=config['years'])
+# 🔄 CHANGED: This function is now cached with date-based key
+@st.cache_data(ttl=86400, show_spinner=False)  # 24-hour cache
+def run_full_analysis(symbols_tuple, config_tuple, regime_dict, date_key):
+    """
+    Run complete analysis pipeline.
+    Cache key includes date_key — invalidates when date changes.
+    """
+    symbols = list(symbols_tuple)
+    config = dict(config_tuple)
 
+    stock_data, failed = fetch_stock_data(symbols, years=config['years'], show_progress=False)
     if not stock_data:
-        return None, None, None, failed, "No data downloaded"
+        return None, None, [], failed, "No data downloaded"
 
-    progress = st.progress(0, text="Calculating indicators...")
     featured_data = {}
-    for i, (symbol, df) in enumerate(stock_data.items()):
+    for symbol, df in stock_data.items():
         try:
             fdf = calculate_indicators(df)
             if len(fdf) > 100:
                 featured_data[symbol] = fdf
         except:
             continue
-        progress.progress((i + 1) / len(stock_data))
-    progress.empty()
 
     sector_returns = {}
     for symbol, df in featured_data.items():
@@ -571,29 +489,21 @@ def run_full_analysis(symbols, config, market_regime):
 
     sector_strength = {}
     for sector, rets in sector_returns.items():
-        sector_strength[sector] = {
-            'avg_return': np.mean(rets),
-            'num_stocks': len(rets)
-        }
-    ranked_sectors = sorted(sector_strength.items(),
-                            key=lambda x: x[1]['avg_return'], reverse=True)
+        sector_strength[sector] = {'avg_return': np.mean(rets), 'num_stocks': len(rets)}
+    ranked_sectors = sorted(sector_strength.items(), key=lambda x: x[1]['avg_return'], reverse=True)
     top_sectors = [s[0] for s in ranked_sectors[:3]]
 
-    if not market_regime['trade_ok']:
+    if not regime_dict['trade_ok']:
         return featured_data, sector_strength, [], failed, "Market regime hostile"
 
     candidates = []
     for symbol, df in featured_data.items():
         try:
             s = score_stock(df, symbol, top_sectors, config)
-            if s is None:
-                continue
-            if s['Total_Score'] < config['min_score']:
-                continue
-            if s['Trend'] < 0.40:
-                continue
-            if s['Momentum'] < 0.30:
-                continue
+            if s is None: continue
+            if s['Total_Score'] < config['min_score']: continue
+            if s['Trend'] < 0.40: continue
+            if s['Momentum'] < 0.30: continue
             candidates.append(s)
         except:
             continue
@@ -611,11 +521,9 @@ def run_full_analysis(symbols, config, market_regime):
     candidates = filtered
 
     for c in candidates:
-        sh, val, pct, risk = calc_position(
-            c['Entry'], c['Stop_Loss'], c['Total_Score'],
-            config['capital'], config['risk_pct'],
-            market_regime['size_multiplier']
-        )
+        sh, val, pct, risk = calc_position(c['Entry'], c['Stop_Loss'], c['Total_Score'],
+                                            config['capital'], config['risk_pct'],
+                                            regime_dict['size_multiplier'])
         c['Shares'] = sh
         c['Position_Value'] = val
         c['Position_Pct'] = round(pct, 1)
@@ -657,173 +565,176 @@ with st.sidebar:
     max_price = st.number_input("Max Price (₹)", value=4000)
 
     st.markdown("---")
-    run_btn = st.button("🚀 Run Analysis", type="primary", use_container_width=True)
+    # 🔄 CHANGED: Force refresh button instead of Run Analysis
+    force_refresh = st.button("🔄 Force Refresh", use_container_width=True,
+                              help="Clear cache and re-run analysis with fresh data")
+    if force_refresh:
+        st.cache_data.clear()
+        st.success("Cache cleared. Reloading...")
+        st.rerun()
 
-# Main content
-if run_btn:
-    config = {
-        'capital': capital,
-        'risk_pct': risk_pct,
-        'min_score': min_score,
-        'min_rr': min_rr,
-        'min_price': min_price,
-        'max_price': max_price,
-        'years': 5,
-    }
 
-    symbols = []
-    if use_nifty50:
-        symbols.extend(NIFTY50)
-    if use_next50:
-        symbols.extend(NIFTY_NEXT50)
-    symbols = list(dict.fromkeys(symbols))
+# 🔄 CHANGED: Auto-run analysis on page load
+today_key = datetime.now().strftime('%Y-%m-%d')  # Changes at midnight
 
-    st.info(f"🔍 Analyzing {len(symbols)} stocks...")
+# Build config and symbols
+config = {
+    'capital': capital, 'risk_pct': risk_pct,
+    'min_score': min_score, 'min_rr': min_rr,
+    'min_price': min_price, 'max_price': max_price,
+    'years': 5,
+}
 
-    with st.spinner("🌍 Checking market regime..."):
-        regime = detect_market_regime()
+symbols = []
+if use_nifty50: symbols.extend(NIFTY50)
+if use_next50: symbols.extend(NIFTY_NEXT50)
+symbols = list(dict.fromkeys(symbols))
 
-    regime_class = 'regime-bearish'
-    if regime['regime'] == 'BULLISH':
-        regime_class = 'regime-bullish'
-    elif regime['regime'] in ['CAUTIOUS BULL', 'SIDEWAYS']:
-        regime_class = 'regime-cautious'
+# Status bar
+now = datetime.now()
+st.markdown(f"""
+<div class="status-bar">
+    🕐 <strong>Last checked:</strong> {now.strftime('%d %b %Y, %I:%M %p')} |
+    📅 <strong>Analysis date:</strong> {today_key} |
+    📊 <strong>Universe:</strong> {len(symbols)} stocks |
+    ♻️ <strong>Cache:</strong> Auto-refreshes daily
+</div>
+""", unsafe_allow_html=True)
 
-    price_str = f"₹{regime['nifty_price']:,.2f}" if regime['nifty_price'] else "N/A"
-    rsi_str = f"{regime['nifty_rsi']:.1f}" if regime['nifty_rsi'] else "N/A"
+# Get market regime (cached 1 hour)
+with st.spinner("🌍 Checking market regime..."):
+    regime = detect_market_regime()
+
+# Display regime card
+regime_class = 'regime-bearish'
+if regime['regime'] == 'BULLISH':
+    regime_class = 'regime-bullish'
+elif regime['regime'] in ['CAUTIOUS BULL', 'SIDEWAYS']:
+    regime_class = 'regime-cautious'
+
+price_str = f"₹{regime['nifty_price']:,.2f}" if regime['nifty_price'] else "N/A"
+rsi_str = f"{regime['nifty_rsi']:.1f}" if regime['nifty_rsi'] else "N/A"
+
+st.markdown(f"""
+<div class="regime-card {regime_class}">
+    <div class="regime-title">Market Regime: {regime['regime']}</div>
+    <p style="margin: 8px 0; font-size: 15px;">{regime['advice']}</p>
+    <div style="margin-top: 14px;">
+        <span class="regime-detail"><strong>Nifty:</strong> {price_str}</span>
+        <span class="regime-detail"><strong>RSI:</strong> {rsi_str}</span>
+        <span class="regime-detail"><strong>Position Size:</strong> {regime['size_multiplier']:.0%}</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+if not regime['trade_ok']:
+    col1, col2, col3, col4 = st.columns(4)
+    with col1: st.metric("Nifty Price", price_str)
+    with col2: st.metric("Nifty RSI", rsi_str)
+    with col3: st.metric("Position Size", f"{regime['size_multiplier']:.0%}")
+    with col4: st.metric("Trade Status", "❌ Blocked")
 
     st.markdown(f"""
-    <div class="regime-card {regime_class}">
-        <div class="regime-title">Market Regime: {regime['regime']}</div>
-        <p style="margin: 8px 0; font-size: 15px;">{regime['advice']}</p>
-        <div style="margin-top: 14px;">
-            <span class="regime-detail"><strong>Nifty:</strong> {price_str}</span>
-            <span class="regime-detail"><strong>RSI:</strong> {rsi_str}</span>
-            <span class="regime-detail"><strong>Position Size:</strong> {regime['size_multiplier']:.0%}</span>
-        </div>
+    <div class="warning-box">
+        <strong>⏸️ No trades recommended today</strong><br><br>
+        The market is currently in a <strong>{regime['regime']}</strong> regime:
+        <ul style="margin: 10px 0 10px 20px; line-height: 1.8;">
+            <li>Nifty is trading below its key moving averages</li>
+            <li>Nifty RSI is at {rsi_str} (extreme oversold)</li>
+            <li>Historical data shows long trades in this regime have a low win rate</li>
+        </ul>
+        <strong>What to do:</strong> Sit in cash. The system will resume when conditions improve.<br><br>
+        <strong>This is not a bug — it is your capital protection working as designed.</strong>
     </div>
     """, unsafe_allow_html=True)
 
-    if not regime['trade_ok']:
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Nifty Price", price_str)
-        with col2:
-            st.metric("Nifty RSI", rsi_str)
-        with col3:
-            st.metric("Position Size", f"{regime['size_multiplier']:.0%}")
-        with col4:
-            st.metric("Trade Status", "❌ Blocked")
+    # RSI chart
+    st.subheader("📉 Nifty RSI — Last 30 Days")
+    nifty = fetch_nifty_data()
+    if nifty is not None:
+        df_rsi = compute_nifty_rsi(nifty)
+        st.line_chart(df_rsi[['RSI']].tail(30).rename(columns={'RSI': 'Nifty RSI'}), height=250)
+        st.caption("When RSI climbs above 40 and stays, trading can resume.")
+    st.stop()
+
+
+# 🔄 CHANGED: Auto-run analysis (cached per day)
+st.subheader("🔍 Analyzing Market...")
+
+# Cache key = date + config hash
+config_tuple = tuple(sorted(config.items()))
+regime_simple = {'trade_ok': regime['trade_ok'], 'size_multiplier': regime['size_multiplier']}
+
+with st.spinner(f"Running analysis for {len(symbols)} stocks (first run of the day takes 2-4 minutes)..."):
+    featured_data, sector_strength, candidates, failed, error = run_full_analysis(
+        tuple(symbols),
+        config_tuple,
+        regime_simple,
+        today_key  # 🔑 Cache invalidates when date changes
+    )
+
+if error:
+    st.error(f"❌ {error}")
+    st.stop()
+
+# Sector strength table
+st.subheader("🏭 Sector Performance (20 Days)")
+sector_rows = []
+for s, v in list(sector_strength.items())[:8]:
+    sector_rows.append({
+        'Sector': s,
+        'Avg Return': f"{v['avg_return']:+.1f}%",
+        'Stocks': v['num_stocks']
+    })
+if sector_rows:
+    st.dataframe(pd.DataFrame(sector_rows), use_container_width=True, hide_index=True)
+
+# Candidates
+st.subheader(f"🎯 Trade Candidates ({len(candidates)} found)")
+
+if not candidates:
+    st.warning("No suitable trades today. Market conditions don't meet quality standards.")
+    st.info("💡 This is normal. The system protects your capital by waiting for quality setups.")
+else:
+    for i, c in enumerate(candidates[:10], 1):
+        score_class = 'score-high' if c['Total_Score'] >= 0.75 else 'score-medium' if c['Total_Score'] >= 0.65 else 'score-low'
+
+        def badge(s):
+            return 'badge-good' if s >= 0.6 else 'badge-ok' if s >= 0.4 else 'badge-weak'
 
         st.markdown(f"""
-        <div class="warning-box">
-            <strong>⏸️ No trades recommended today</strong><br><br>
-            The market is currently in a <strong>{regime['regime']}</strong> regime:
-            <ul style="margin: 10px 0 10px 20px; line-height: 1.8;">
-                <li>Nifty is trading below its key moving averages</li>
-                <li>Nifty RSI is at {rsi_str} (extreme oversold)</li>
-                <li>Historical data shows long trades in this regime have a low win rate</li>
-            </ul>
-            <strong>What to do:</strong> Sit in cash. Wait for RSI to recover above 40 and Nifty to 
-            reclaim its 50-day MA. The system will resume recommendations when conditions improve.<br><br>
-            <strong>This is not a bug — it is your capital protection working as designed.</strong>
+        <div class="stock-card">
+            <span class="stock-score {score_class}">{c['Total_Score']:.0%}</span>
+            <span class="stock-symbol">#{i} {c['Symbol']}</span>
+            <span class="stock-sector">({c['Sector']}) · {c['Confidence']}</span>
+            <div style="margin-top: 15px;">
+                <span class="factor-badge {badge(c['Trend'])}">Trend: {c['Trend']:.0%}</span>
+                <span class="factor-badge {badge(c['Momentum'])}">Mom: {c['Momentum']:.0%}</span>
+                <span class="factor-badge {badge(c['Volume'])}">Vol: {c['Volume']:.0%}</span>
+                <span class="factor-badge {badge(c['Risk_Quality'])}">Risk: {c['Risk_Quality']:.0%}</span>
+            </div>
+            <div class="trade-plan-box">
+                <strong>📋 Trade Plan</strong><br>
+                Entry Range: <strong>₹{c['Entry_Low']:.0f} – ₹{c['Entry_High']:.0f}</strong><br>
+                Stop Loss: <strong>₹{c['Stop_Loss']:.2f}</strong> ({c['Stop_Loss_Pct']:+.1f}%) ·
+                Target: <strong>₹{c['Target_1']:.2f}</strong> ·
+                R:R <strong>1:{c['Risk_Reward']}</strong><br>
+                Shares: <strong>{c['Shares']}</strong> ·
+                Invest: <strong>₹{c['Position_Value']:,.0f}</strong> ·
+                Risk: <strong>₹{c['Risk_Amount']:,.0f}</strong>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Regime history chart
-        st.subheader("📉 Nifty RSI — Last 30 Days")
-        nifty = fetch_nifty_data()
-        if nifty is not None:
-            df_rsi = compute_nifty_rsi(nifty)
-            chart_data = df_rsi[['RSI']].tail(30).rename(columns={'RSI': 'Nifty RSI'})
-            st.line_chart(chart_data, height=250)
-            st.caption("When RSI climbs above 40 and stays there, the market regime will shift and trading can resume.")
+    st.markdown("---")
+    candidates_df = pd.DataFrame(candidates)
+    csv = candidates_df.to_csv(index=False)
+    st.download_button(
+        "📥 Download CSV",
+        csv,
+        file_name=f"swing_trades_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+        mime="text/csv"
+    )
 
-        st.stop()
-
-    with st.spinner("🔍 Running full analysis..."):
-        featured_data, sector_strength, candidates, failed, error = run_full_analysis(
-            symbols, config, regime
-        )
-
-    if error:
-        st.error(f"❌ {error}")
-        st.stop()
-
-    st.subheader("🏭 Sector Performance (20 Days)")
-    sector_rows = []
-    for s, v in list(sector_strength.items())[:8]:
-        sector_rows.append({
-            'Sector': s,
-            'Avg Return': f"{v['avg_return']:+.1f}%",
-            'Stocks': v['num_stocks']
-        })
-    if sector_rows:
-        st.dataframe(pd.DataFrame(sector_rows), use_container_width=True, hide_index=True)
-
-    st.subheader(f"🎯 Trade Candidates ({len(candidates)} found)")
-
-    if not candidates:
-        st.warning("No suitable trades today. Market conditions don't meet quality standards.")
-        st.info("💡 This is normal. The system protects your capital by waiting for quality setups.")
-    else:
-        for i, c in enumerate(candidates[:10], 1):
-            score_class = 'score-high' if c['Total_Score'] >= 0.75 else 'score-medium' if c['Total_Score'] >= 0.65 else 'score-low'
-
-            def badge(s):
-                return 'badge-good' if s >= 0.6 else 'badge-ok' if s >= 0.4 else 'badge-weak'
-
-            st.markdown(f"""
-            <div class="stock-card">
-                <span class="stock-score {score_class}">{c['Total_Score']:.0%}</span>
-                <span class="stock-symbol">#{i} {c['Symbol']}</span>
-                <span class="stock-sector">({c['Sector']}) · {c['Confidence']}</span>
-                <div style="margin-top: 15px;">
-                    <span class="factor-badge {badge(c['Trend'])}">Trend: {c['Trend']:.0%}</span>
-                    <span class="factor-badge {badge(c['Momentum'])}">Mom: {c['Momentum']:.0%}</span>
-                    <span class="factor-badge {badge(c['Volume'])}">Vol: {c['Volume']:.0%}</span>
-                    <span class="factor-badge {badge(c['Risk_Quality'])}">Risk: {c['Risk_Quality']:.0%}</span>
-                </div>
-                <div class="trade-plan-box">
-                    <strong>📋 Trade Plan</strong><br>
-                    Entry Range: <strong>₹{c['Entry_Low']:.0f} – ₹{c['Entry_High']:.0f}</strong><br>
-                    Stop Loss: <strong>₹{c['Stop_Loss']:.2f}</strong> ({c['Stop_Loss_Pct']:+.1f}%) ·
-                    Target: <strong>₹{c['Target_1']:.2f}</strong> ·
-                    R:R <strong>1:{c['Risk_Reward']}</strong><br>
-                    Shares: <strong>{c['Shares']}</strong> ·
-                    Invest: <strong>₹{c['Position_Value']:,.0f}</strong> ·
-                    Risk: <strong>₹{c['Risk_Amount']:,.0f}</strong>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("---")
-        candidates_df = pd.DataFrame(candidates)
-        csv = candidates_df.to_csv(index=False)
-        st.download_button(
-            "📥 Download CSV",
-            csv,
-            file_name=f"swing_trades_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-            mime="text/csv"
-        )
-
-else:
-    st.markdown("""
-    ### 👋 Welcome to your Swing Trading Dashboard
-
-    **How to use:**
-    1. Configure settings in the sidebar ⚙️
-    2. Click **🚀 Run Analysis**
-    3. Review market regime and trade candidates
-
-    **What this does:**
-    - Checks Nifty market regime first (protects your capital)
-    - Scores every stock on 5 factors (trend, momentum, volume, regime, risk)
-    - Filters out poor risk/reward setups
-    - Calculates exact position sizes for your capital
-
-    **First-time note:** The first run takes 3-5 minutes to download data.
-    Subsequent runs use caching for speed.
-    """)
-
-    st.info("💡 **Tip:** Click **Run Analysis** to begin. If market regime is hostile, no trades will be recommended.")
+st.markdown("---")
+st.caption(f"✅ Analysis complete | Next auto-refresh: tomorrow at midnight IST | Cache key: {today_key}")
