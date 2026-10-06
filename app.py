@@ -37,13 +37,18 @@ st.markdown("""
     .main-header h1 { margin: 0; font-size: 32px; }
     .main-header p { margin: 8px 0 0 0; opacity: 0.9; }
     
-    .regime-card {
+        .regime-card {
         padding: 20px;
         border-radius: 12px;
         margin: 15px 0;
         border-left: 6px solid #95a5a6;
         background: white;
         box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        color: #2c3e50 !important;
+    }
+    .regime-card p {
+        color: #2c3e50 !important;
+        margin: 6px 0;
     }
     .regime-bullish { border-left-color: #00b894; }
     .regime-cautious { border-left-color: #fdcb6e; }
@@ -52,8 +57,7 @@ st.markdown("""
     .regime-title { font-size: 22px; font-weight: bold; margin-bottom: 8px; }
     .regime-bullish .regime-title { color: #00b894; }
     .regime-cautious .regime-title { color: #f39c12; }
-    .regime-bearish .regime-title { color: #d63031; }
-    
+    .regime-bearish .regime-title { color: #d63031; }    
     .stock-card {
         background: white;
         padding: 20px;
