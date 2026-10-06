@@ -1,6 +1,6 @@
 # ============================================================
 # INDIAN STOCK SWING TRADING DASHBOARD
-# Streamlit Application - Auto-Run Version
+# Streamlit Application - Full Featured Version
 # ============================================================
 
 import streamlit as st
@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import time
+import os
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -117,6 +118,14 @@ st.markdown("""
         font-size: 13px;
         color: #2c3e50 !important;
     }
+
+    .metric-card {
+        padding: 16px;
+        background: #f8f9fa;
+        border-radius: 10px;
+        text-align: center;
+        border-left: 4px solid #667eea;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -181,6 +190,9 @@ SECTOR_MAP = {
     'BANKBARODA.NS': 'Banking', 'BHARATFORG.NS': 'Auto',
     'LUPIN.NS': 'Pharma', 'TATAPOWER.NS': 'Power', 'INDHOTEL.NS': 'Hospitality',
 }
+
+# Trades file path
+TRADES_FILE = "data/trades.csv"
 
 
 # ============================================================
@@ -264,15 +276,12 @@ def detect_market_regime():
             'nifty_ma_50': ma_50, 'nifty_ma_200': ma_200, 'advice': advice}
 
 
-def fetch_stock_data(symbols, years=5, show_progress=True):
+def fetch_stock_data(symbols, years=5):
     end_date = datetime.now()
     start_date = end_date - timedelta(days=years * 365)
     stock_data = {}
     failed = []
-
-    progress = st.progress(0, text="Downloading market data...") if show_progress else None
-
-    for i, symbol in enumerate(symbols):
+    for symbol in symbols:
         try:
             sdf = yf.download(symbol,
                 start=start_date.strftime('%Y-%m-%d'),
@@ -286,12 +295,7 @@ def fetch_stock_data(symbols, years=5, show_progress=True):
                 failed.append(symbol)
         except:
             failed.append(symbol)
-        if progress:
-            progress.progress((i + 1) / len(symbols), text=f"Downloaded {i+1}/{len(symbols)}")
         time.sleep(0.05)
-
-    if progress:
-        progress.empty()
     return stock_data, failed
 
 
@@ -457,17 +461,11 @@ def calc_position(entry, stop, score, capital, risk_pct, size_mult=1.0):
     return shares, shares * entry, (shares * entry / capital) * 100, shares * stop_dist
 
 
-# 🔄 CHANGED: This function is now cached with date-based key
-@st.cache_data(ttl=86400, show_spinner=False)  # 24-hour cache
+@st.cache_data(ttl=86400, show_spinner=False)
 def run_full_analysis(symbols_tuple, config_tuple, regime_dict, date_key):
-    """
-    Run complete analysis pipeline.
-    Cache key includes date_key — invalidates when date changes.
-    """
     symbols = list(symbols_tuple)
     config = dict(config_tuple)
-
-    stock_data, failed = fetch_stock_data(symbols, years=config['years'], show_progress=False)
+    stock_data, failed = fetch_stock_data(symbols, years=config['years'])
     if not stock_data:
         return None, None, [], failed, "No data downloaded"
 
@@ -535,6 +533,30 @@ def run_full_analysis(symbols_tuple, config_tuple, regime_dict, date_key):
 
 
 # ============================================================
+# TRADE TRACKER HELPERS
+# ============================================================
+
+def load_trades():
+    """Load trade tracker CSV"""
+    if os.path.exists(TRADES_FILE):
+        try:
+            return pd.read_csv(TRADES_FILE)
+        except:
+            pass
+    return pd.DataFrame(columns=[
+        'date_recommended', 'symbol', 'sector', 'entry_planned', 'entry_actual',
+        'shares', 'stop_loss', 'target', 'score', 'confidence',
+        'status', 'exit_price', 'exit_date', 'pnl_rs', 'pnl_pct', 'notes'
+    ])
+
+
+def save_trades(df):
+    """Save trade tracker to CSV"""
+    os.makedirs(os.path.dirname(TRADES_FILE), exist_ok=True)
+    df.to_csv(TRADES_FILE, index=False)
+
+
+# ============================================================
 # MAIN UI
 # ============================================================
 
@@ -565,19 +587,17 @@ with st.sidebar:
     max_price = st.number_input("Max Price (₹)", value=4000)
 
     st.markdown("---")
-    # 🔄 CHANGED: Force refresh button instead of Run Analysis
-    force_refresh = st.button("🔄 Force Refresh", use_container_width=True,
-                              help="Clear cache and re-run analysis with fresh data")
+    show_shadow = st.checkbox("Show shadow picks when blocked", value=True,
+                              help="Show what would have qualified if regime allowed")
+
+    force_refresh = st.button("🔄 Force Refresh", use_container_width=True)
     if force_refresh:
         st.cache_data.clear()
+        st.session_state['last_run_time'] = datetime.now()
         st.success("Cache cleared. Reloading...")
         st.rerun()
 
-
-# 🔄 CHANGED: Auto-run analysis on page load
-today_key = datetime.now().strftime('%Y-%m-%d')  # Changes at midnight
-
-# Build config and symbols
+# Build config
 config = {
     'capital': capital, 'risk_pct': risk_pct,
     'min_score': min_score, 'min_rr': min_rr,
@@ -590,22 +610,42 @@ if use_nifty50: symbols.extend(NIFTY50)
 if use_next50: symbols.extend(NIFTY_NEXT50)
 symbols = list(dict.fromkeys(symbols))
 
-# Status bar
+today_key = datetime.now().strftime('%Y-%m-%d')
+
+# ============================================================
+# STATUS BAR WITH FRESHNESS INDICATOR
+# ============================================================
+if 'last_run_time' not in st.session_state:
+    st.session_state['last_run_time'] = datetime.now()
+
 now = datetime.now()
+last_run = st.session_state['last_run_time']
+age_min = (now - last_run).total_seconds() / 60
+
+if age_min < 2:
+    freshness = "🟢 Fresh"
+elif age_min < 60:
+    freshness = "🟢 Fresh"
+elif age_min < 360:
+    freshness = "🟡 Recent"
+else:
+    freshness = "🔴 Stale"
+
 st.markdown(f"""
 <div class="status-bar">
     🕐 <strong>Last checked:</strong> {now.strftime('%d %b %Y, %I:%M %p')} |
     📅 <strong>Analysis date:</strong> {today_key} |
     📊 <strong>Universe:</strong> {len(symbols)} stocks |
-    ♻️ <strong>Cache:</strong> Auto-refreshes daily
+    ♻️ <strong>Data:</strong> {freshness} (cached {age_min:.0f} min ago)
 </div>
 """, unsafe_allow_html=True)
 
-# Get market regime (cached 1 hour)
+# ============================================================
+# MARKET REGIME
+# ============================================================
 with st.spinner("🌍 Checking market regime..."):
     regime = detect_market_regime()
 
-# Display regime card
 regime_class = 'regime-bearish'
 if regime['regime'] == 'BULLISH':
     regime_class = 'regime-bullish'
@@ -627,6 +667,9 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# ============================================================
+# REGIME BLOCKED PATH
+# ============================================================
 if not regime['trade_ok']:
     col1, col2, col3, col4 = st.columns(4)
     with col1: st.metric("Nifty Price", price_str)
@@ -648,36 +691,88 @@ if not regime['trade_ok']:
     </div>
     """, unsafe_allow_html=True)
 
-    # RSI chart
     st.subheader("📉 Nifty RSI — Last 30 Days")
     nifty = fetch_nifty_data()
     if nifty is not None:
         df_rsi = compute_nifty_rsi(nifty)
         st.line_chart(df_rsi[['RSI']].tail(30).rename(columns={'RSI': 'Nifty RSI'}), height=250)
-        st.caption("When RSI climbs above 40 and stays, trading can resume.")
+
+    # ============================================================
+    # SHADOW PICKS (What would have been picked)
+    # ============================================================
+    if show_shadow:
+        st.markdown("---")
+        st.subheader("🔍 Shadow Picks — Learning Only")
+        st.warning("⚠️ These stocks passed the quality filter but the regime blocks trading. **Do NOT trade these.** This is for learning what the system would pick when the market improves.")
+
+        with st.spinner("Running shadow analysis (30-60 seconds)..."):
+            config_tuple = tuple(sorted(config.items()))
+            regime_sim = {'trade_ok': True, 'size_multiplier': 0.5}
+
+            _, _, shadow_candidates, _, _ = run_full_analysis(
+                tuple(symbols),
+                config_tuple,
+                regime_sim,
+                today_key + "_shadow"
+            )
+
+        if shadow_candidates:
+            st.success(f"Shadow analysis: {len(shadow_candidates)} stocks would qualify in a normal regime")
+
+            for i, c in enumerate(shadow_candidates[:5], 1):
+                score_class = 'score-high' if c['Total_Score'] >= 0.75 else 'score-medium' if c['Total_Score'] >= 0.65 else 'score-low'
+
+                def badge(s):
+                    return 'badge-good' if s >= 0.6 else 'badge-ok' if s >= 0.4 else 'badge-weak'
+
+                st.markdown(f"""
+                <div class="stock-card">
+                    <span class="stock-score {score_class}">{c['Total_Score']:.0%}</span>
+                    <span class="stock-symbol">#{i} {c['Symbol']}</span>
+                    <span class="stock-sector">({c['Sector']}) · {c['Confidence']}</span>
+                    <div style="margin-top: 15px;">
+                        <span class="factor-badge {badge(c['Trend'])}">Trend: {c['Trend']:.0%}</span>
+                        <span class="factor-badge {badge(c['Momentum'])}">Mom: {c['Momentum']:.0%}</span>
+                        <span class="factor-badge {badge(c['Volume'])}">Vol: {c['Volume']:.0%}</span>
+                        <span class="factor-badge {badge(c['Risk_Quality'])}">Risk: {c['Risk_Quality']:.0%}</span>
+                    </div>
+                    <div class="trade-plan-box">
+                        <strong>Hypothetical Plan</strong><br>
+                        Entry: <strong>₹{c['Entry']:.0f}</strong> ·
+                        Stop: <strong>₹{c['Stop_Loss']:.0f}</strong> ·
+                        Target: <strong>₹{c['Target_1']:.0f}</strong><br>
+                        R:R <strong>1:{c['Risk_Reward']}</strong> · RSI: {c['RSI']}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("Even without the regime block, no stocks passed the quality filter today.")
+
     st.stop()
 
 
-# 🔄 CHANGED: Auto-run analysis (cached per day)
+# ============================================================
+# NORMAL PATH — RUN ANALYSIS
+# ============================================================
 st.subheader("🔍 Analyzing Market...")
 
-# Cache key = date + config hash
 config_tuple = tuple(sorted(config.items()))
 regime_simple = {'trade_ok': regime['trade_ok'], 'size_multiplier': regime['size_multiplier']}
 
-with st.spinner(f"Running analysis for {len(symbols)} stocks (first run of the day takes 2-4 minutes)..."):
+with st.spinner(f"Analyzing {len(symbols)} stocks (first run of the day takes 2-4 minutes)..."):
     featured_data, sector_strength, candidates, failed, error = run_full_analysis(
-        tuple(symbols),
-        config_tuple,
-        regime_simple,
-        today_key  # 🔑 Cache invalidates when date changes
+        tuple(symbols), config_tuple, regime_simple, today_key
     )
+
+st.session_state['last_run_time'] = datetime.now()
 
 if error:
     st.error(f"❌ {error}")
     st.stop()
 
-# Sector strength table
+# ============================================================
+# SECTOR PERFORMANCE
+# ============================================================
 st.subheader("🏭 Sector Performance (20 Days)")
 sector_rows = []
 for s, v in list(sector_strength.items())[:8]:
@@ -689,8 +784,12 @@ for s, v in list(sector_strength.items())[:8]:
 if sector_rows:
     st.dataframe(pd.DataFrame(sector_rows), use_container_width=True, hide_index=True)
 
-# Candidates
+# ============================================================
+# CANDIDATES
+# ============================================================
 st.subheader(f"🎯 Trade Candidates ({len(candidates)} found)")
+
+candidates_df = pd.DataFrame(candidates) if candidates else pd.DataFrame()
 
 if not candidates:
     st.warning("No suitable trades today. Market conditions don't meet quality standards.")
@@ -726,15 +825,154 @@ else:
         </div>
         """, unsafe_allow_html=True)
 
+# ============================================================
+# DOWNLOAD + TRADE TRACKER
+# ============================================================
+st.markdown("---")
+
+col_a, col_b = st.columns([1, 1])
+with col_a:
+    if not candidates_df.empty:
+        csv = candidates_df.to_csv(index=False)
+        st.download_button(
+            "📥 Download Today's Picks (CSV)",
+            csv,
+            file_name=f"picks_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+with col_b:
+    if not candidates_df.empty and st.button("➕ Add Today's Picks to Tracker", use_container_width=True):
+        trades = load_trades()
+        new_rows = []
+        for c in candidates:
+            new_rows.append({
+                'date_recommended': today_key,
+                'symbol': c['Symbol'],
+                'sector': c['Sector'],
+                'entry_planned': c['Entry'],
+                'entry_actual': '',
+                'shares': c['Shares'],
+                'stop_loss': c['Stop_Loss'],
+                'target': c['Target_1'],
+                'score': c['Total_Score'],
+                'confidence': c['Confidence'],
+                'status': 'OPEN',
+                'exit_price': '',
+                'exit_date': '',
+                'pnl_rs': '',
+                'pnl_pct': '',
+                'notes': ''
+            })
+        trades = pd.concat([trades, pd.DataFrame(new_rows)], ignore_index=True)
+        save_trades(trades)
+        st.success(f"✅ Added {len(new_rows)} trades to tracker")
+        st.rerun()
+
+# ============================================================
+# TRADE TRACKER PANEL
+# ============================================================
+st.subheader("📓 Paper Trade Tracker")
+
+trades = load_trades()
+
+if len(trades) == 0:
+    st.info("No trades tracked yet. Click **➕ Add Today's Picks to Tracker** above to start tracking.")
+else:
+    open_trades = trades[trades['status'] == 'OPEN'] if 'status' in trades.columns else pd.DataFrame()
+    closed_trades = trades[trades['status'] == 'CLOSED'] if 'status' in trades.columns else pd.DataFrame()
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Open Trades", len(open_trades))
+    with col2:
+        st.metric("Closed Trades", len(closed_trades))
+
+    if len(closed_trades) > 0:
+        closed_trades['pnl_rs'] = pd.to_numeric(closed_trades['pnl_rs'], errors='coerce')
+        valid_closed = closed_trades[closed_trades['pnl_rs'].notna()]
+
+        if len(valid_closed) > 0:
+            win_rate = (valid_closed['pnl_rs'] > 0).mean() * 100
+            total_pnl = valid_closed['pnl_rs'].sum()
+            with col3:
+                st.metric("Win Rate", f"{win_rate:.0f}%")
+            with col4:
+                st.metric("Total P&L", f"₹{total_pnl:,.0f}",
+                          delta=f"{'+' if total_pnl >= 0 else ''}{total_pnl:,.0f}")
+
+    # Show open trades
+    if len(open_trades) > 0:
+        st.markdown("**📌 Open Positions**")
+        display_cols = ['date_recommended', 'symbol', 'sector', 'entry_planned',
+                        'shares', 'stop_loss', 'target', 'score', 'status']
+        available = [c for c in display_cols if c in open_trades.columns]
+        st.dataframe(open_trades[available], use_container_width=True, hide_index=True)
+
+    # Show closed trades
+    if len(closed_trades) > 0:
+        with st.expander(f"📊 Closed Trades ({len(closed_trades)})"):
+            display_cols = ['date_recommended', 'symbol', 'entry_actual', 'exit_price',
+                            'exit_date', 'pnl_rs', 'pnl_pct', 'notes']
+            available = [c for c in display_cols if c in closed_trades.columns]
+            st.dataframe(closed_trades[available], use_container_width=True, hide_index=True)
+
+    # ============================================================
+    # PERFORMANCE CHART
+    # ============================================================
+    if len(closed_trades) >= 3:
+        st.markdown("---")
+        st.subheader("📈 Performance Over Time")
+
+        perf = closed_trades.copy()
+        perf['pnl_rs'] = pd.to_numeric(perf['pnl_rs'], errors='coerce')
+        perf = perf[perf['pnl_rs'].notna()].copy()
+        perf['exit_date'] = pd.to_datetime(perf['exit_date'], errors='coerce')
+        perf = perf.sort_values('exit_date')
+        perf['cumulative_pnl'] = perf['pnl_rs'].cumsum()
+
+        chart_data = perf[['exit_date', 'cumulative_pnl']].set_index('exit_date')
+        st.line_chart(chart_data, height=280)
+
+        col1, col2, col3, col4 = st.columns(4)
+        wins = perf[perf['pnl_rs'] > 0]
+        losses = perf[perf['pnl_rs'] < 0]
+
+        with col1:
+            st.metric("Avg Win", f"₹{wins['pnl_rs'].mean():,.0f}" if len(wins) else "—")
+        with col2:
+            st.metric("Avg Loss", f"₹{losses['pnl_rs'].mean():,.0f}" if len(losses) else "—")
+        with col3:
+            st.metric("Best Trade", f"₹{perf['pnl_rs'].max():,.0f}")
+        with col4:
+            st.metric("Worst Trade", f"₹{perf['pnl_rs'].min():,.0f}")
+
+    # ============================================================
+    # MANUAL UPDATE SECTION
+    # ============================================================
     st.markdown("---")
-    candidates_df = pd.DataFrame(candidates)
-    csv = candidates_df.to_csv(index=False)
+    st.markdown("**✏️ Update Trades Manually**")
+    st.caption("Edit the CSV directly in Google Sheets or Excel, then upload it back.")
+
+    uploaded = st.file_uploader("Upload updated trades.csv", type="csv")
+    if uploaded is not None:
+        try:
+            updated_trades = pd.read_csv(uploaded)
+            save_trades(updated_trades)
+            st.success("✅ Tracker updated")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Failed to update: {e}")
+
+    # Download current tracker
     st.download_button(
-        "📥 Download CSV",
-        csv,
-        file_name=f"swing_trades_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-        mime="text/csv"
+        "📥 Download Current Tracker (CSV)",
+        trades.to_csv(index=False),
+        file_name="trades.csv",
+        mime="text/csv",
+        use_container_width=True
     )
 
+# Footer
 st.markdown("---")
-st.caption(f"✅ Analysis complete | Next auto-refresh: tomorrow at midnight IST | Cache key: {today_key}")
+st.caption(f"✅ Analysis complete | Cache key: {today_key} | Refresh daily at midnight IST")
